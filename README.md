@@ -37,4 +37,4 @@ bash start --force-recreate
       - "traefik.http.routers.graphql.rule=Host(`$GRAPHQL_HOST`)"
 
 ```
-Add GRAPHQL_HOST=graphql.mydomain.com to .env file
+Add `GRAPHQL_HOST=graphql.mydomain.com` to .env file
