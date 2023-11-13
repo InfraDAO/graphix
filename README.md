@@ -23,6 +23,32 @@ bash start
 bash start --force-recreate
 ```
 
+#### Edit config.tmpl for different data sources. By default it checks arbitrum mainnet and arbitrum goerli. 
+```bash
+databaseUrl: postgres://${DB_USER}:${DB_PASS}@postgres:5432/${DB_NAME}
+sources:
+ # - type: networkSubgraph
+ #   endpoint: https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-goerli
+ #   query: byAllocations
+ #   stakeThreshold: 0.0
+ #   limit: 1000
+ # - type: networkSubgraph
+ #   endpoint: https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-mainnet
+ #   query: byAllocations
+ #   stakeThreshold: 0.0
+ #   limit: 1000
+  - type: networkSubgraph
+    endpoint: https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-goerli
+    query: byAllocations
+    stakeThreshold: 0.0
+    limit: 1000
+  - type: networkSubgraph
+    endpoint: https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum
+    query: byAllocations
+    stakeThreshold: 0.0
+    limit: 1000
+```
+
 #### Add Graphql Endpoint UI
 
 `Add the following to the end of graphix api container`
