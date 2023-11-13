@@ -23,7 +23,7 @@ bash start
 bash start --force-recreate
 ```
 
-#### Edit config.tmpl for different data sources. By default it checks arbitrum mainnet and arbitrum goerli. 
+#### Edit config.tmpl for different data sources. By default it checks arbitrum one and arbitrum goerli. 
 ```bash
 databaseUrl: postgres://${DB_USER}:${DB_PASS}@postgres:5432/${DB_NAME}
 sources:
