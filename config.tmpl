@@ -1,0 +1,24 @@
+# A good mix of data sources for local development, both mainnet and testnet.
+
+databaseUrl: postgres://${DB_USER}:${DB_PASS}@postgres:5432/${DB_NAME}
+sources:
+ # - type: networkSubgraph
+ #   endpoint: https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-goerli
+ #   query: byAllocations
+ #   stakeThreshold: 0.0
+ #   limit: 1000
+ # - type: networkSubgraph
+ #   endpoint: https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-mainnet
+ #   query: byAllocations
+ #   stakeThreshold: 0.0
+ #   limit: 1000
+  - type: networkSubgraph
+    endpoint: https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-goerli
+    query: byAllocations
+    stakeThreshold: 0.0
+    limit: 1000
+  - type: networkSubgraph
+    endpoint: https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum
+    query: byAllocations
+    stakeThreshold: 0.0
+    limit: 1000

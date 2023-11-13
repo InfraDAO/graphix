@@ -1,0 +1,172 @@
+
+version: '3.8'
+
+networks:
+  monitor-net:
+    driver: bridge
+
+volumes:
+    prometheus_data: {}
+    grafana_data: {}
+    postgres_data: {}
+
+services:
+
+######################################################################################
+#####################         TRAEFIK PROXY CONTAINER          #######################
+######################################################################################      
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: always
+    expose:
+      - "8082"
+    ports:
+      - "443:443"
+      - "80:80"
+    command:
+      - "--api=true"
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--log.level=DEBUG"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.filename=/dynamic_config.yml"
+      - "--entrypoints.websecure.address=:443"
+      - "--entryPoints.metrics.address=:8082"
+      - "--metrics.prometheus.entryPoint=metrics"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=$EMAIL"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    volumes:
+      - "./traefik/letsencrypt:/letsencrypt"
+      - "./traefik/config/dynamic_config.yml:/dynamic_config.yml"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - monitor-net
+    labels:
+      - "traefik.enable=true"
+
+
+######################################################################################
+#####################               API CONTAINER              #######################
+######################################################################################
+
+  graphix-api-server:
+    image: kw1k/graphix-api-server
+    container_name: graphix-api-server
+    restart: on-failure
+    expose:
+      - 3030
+    environment:
+      RUST_LOG: graphix=debug
+    networks:
+      - monitor-net
+    volumes:
+      - ./config.yml:/app/config.yml
+    labels:
+      - "org.label-schema.group=monitoring"
+      - "traefik.enable=true"
+      - "traefik.http.services.graphql.loadbalancer.server.port=3030"
+      - "traefik.http.routers.graphql.entrypoints=websecure"
+      - "traefik.http.routers.graphql.tls.certresolver=myresolver"
+      - "traefik.http.routers.graphql.rule=Host(`$GRAPHQL_HOST`)"
+    command:
+      [
+        "--database-url",
+        "postgres://${DB_USER}:${DB_PASS}@postgres:5432/${DB_NAME}",
+        "--port",
+        "3030",
+      ]
+
+######################################################################################
+#####################           CHECKER CONTAINER              #######################
+######################################################################################
+
+  graphix-cross-checker:
+    image: kw1k/graphix-cross-checker
+    container_name: graphix-cross-checker
+    restart: on-failure
+    environment:
+      RUST_LOG: graphix=debug
+    expose:
+      - 9184
+    networks:
+      - monitor-net
+    volumes:
+      - ./config.yml:/app/config.yml
+
+
+######################################################################################
+#####################           GRAFANA CONTAINER              #######################
+######################################################################################
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=fifemon-graphql-datasource
+      - GF_SECURITY_DISABLE_BRUTE_FORCE_LOGIN_PROTECTION=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    restart: unless-stopped
+    expose:
+      - 3000
+    networks:
+      - monitor-net
+    labels:
+      - "org.label-schema.group=monitoring"
+      - "traefik.enable=true"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls.certresolver=myresolver"
+      - "traefik.http.routers.grafana.rule=Host(`$GRAFANA_HOST`)"
+
+######################################################################################
+#####################          PROMETHEUS CONTAINER            #######################
+######################################################################################
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    expose:
+      - 9090
+    networks:
+      - monitor-net
+
+######################################################################################
+#####################             POSTGRES CONTAINER           #######################
+######################################################################################
+
+  postgres:
+    image: postgres
+    container_name: postgres
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASS:-admin}
+      POSTGRES_DB: ${DB_NAME:-graphix}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - monitor-net
+    expose:
+      - 5432
